@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Form NIK dan Nama</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .error { color: red; font-size: 12px; margin-top: 0; }
-    </style>
 </head>
 <body>
     <form>
@@ -23,22 +20,23 @@
         <button onclick="addNewData(event)" disabled>Simpan</button>
     </form>
 
-    <table>
-        <thead>
-            <tr>
-                <td>No</td>
-                <td>NIK</td>
-                <td>Nama</td>
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-            <tr>
-                <td>1</td>
-                <td>06650053</td>
-                <td>Sunu Pinasthika Fajar</td>
-            </tr>
-        </tbody>
-    </table>
+    <div id="dataTableContainer">
+        <table>
+            <thead>
+                <tr>
+                    <td>No</td>
+                    <td>NIK</td>
+                    <td>Nama</td>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+        <div id="pagination">
+            <button onclick="changePage('prev')">Prev</button>
+            <span id="pageInfo"></span>
+            <button onclick="changePage('next')">Next</button>
+        </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/validator/13.6.0/validator.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -47,7 +45,34 @@
         const name = document.querySelector('.name');
         const button = document.querySelector('form button');
         const tableBody = document.getElementById('tableBody');
+        const pageInfo = document.getElementById('pageInfo');
+        let currentPage = 1;
+        let totalPages = 1;
         let errors = [];
+
+        function fetchData(page = 1) {
+            axios.get(`fetch-data.php?page=${page}`)
+                .then(response => {
+                    const data = response.data.data;
+                    totalPages = response.data.totalPages;
+                    renderTable(data);
+                    pageInfo.innerText = `Page ${page} of ${totalPages}`;
+                })
+                .catch(error => console.error("Error fetching data:", error));
+        }
+
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+            data.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1 + (currentPage - 1) * 5}</td>
+                    <td>${item.nik}</td>
+                    <td>${item.name}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
 
         function checkInput(e) {
             if (!validation()) {
@@ -92,22 +117,25 @@
             axios.post('save-data.php', {
                 'nik': nik.value,
                 'name': name.value
-            }).then(function(response) {
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td>${tableBody.rows.length + 1}</td>
-                    <td>${response.data.nik}</td>
-                    <td>${response.data.name}</td>
-                `;
-                tableBody.appendChild(newRow);
-
+            }).then(response => {
+                fetchData(currentPage);
                 nik.value = '';
                 name.value = '';
                 button.setAttribute('disabled', true);
-            }).catch(function(error) {
-                console.error("Error saving data:", error);
-            });
+            }).catch(error => console.error("Error saving data:", error));
         }
+
+        function changePage(direction) {
+            if (direction === 'next' && currentPage < totalPages) {
+                currentPage++;
+            } else if (direction === 'prev' && currentPage > 1) {
+                currentPage--;
+            }
+            fetchData(currentPage);
+        }
+
+        // Load initial data
+        fetchData(currentPage);
     </script>
 </body>
 </html>
